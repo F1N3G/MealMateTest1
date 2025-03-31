@@ -1,0 +1,774 @@
+// assets> style.css
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f4fdf7;
+    margin: 0;
+    padding: 0;
+}
+header, footer {
+    background-color: #4CAF50;
+    color: white;
+    padding: 15px;
+    text-align: center;
+}
+nav a {
+    color: white;
+    margin: 0 15px;
+    text-decoration: none;
+}
+.container {
+    padding: 30px;
+    text-align: center;
+}
+form {
+    background-color: #fff;
+    padding: 20px;
+    margin: 20px auto;
+    width: 300px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+form input, form button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+form button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+
+// config >databas.php
+<?php
+// config/database.php
+$host = 'localhost';
+$db = 'DietaDB';
+$user = 'root';
+$pass = '';
+
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8", $user, $pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Eroare la conectarea la baza de date: " . $e->getMessage());
+}
+?>
+
+// includes > db.php
+<?php
+require_once __DIR__ . '/../config/database.php';
+
+function select($sql, $params = []) {
+    global $pdo;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function execute($sql, $params = []) {
+    global $pdo;
+    $stmt = $pdo->prepare($sql);
+    return $stmt->execute($params);
+}
+//> footer.php
+<?php
+// includes/footer.php
+?>
+    <footer>
+        <p>&copy; <?= date("Y") ?> MealMate - Gabriela Florescu</p>
+    </footer>
+</body>
+</html>
+
+//>header.php
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>MealMate</title>
+    <link rel="stylesheet" href="/MealMateTest1/assets/style.css">
+</head>
+<body>
+    <header>
+        <h2>MealMate</h2>
+        <nav>
+            <?php if (isset($_SESSION['user'])): ?>
+                <a href="/MealMateTest1/pages/dashboard.php">Dashboard</a>
+                <a href="/MealMateTest1/pages/alimente.php">Alimente</a>
+                <a href="/MealMateTest1/pages/retete.php">Rețete</a>
+                <a href="/MealMateTest1/pages/plan_alimentar.php">Plan alimentar</a>
+                <a href="/MealMateTest1/pages/cumparaturi.php">Cumpărături</a>
+                <a href="/MealMateTest1/index.php?logout=1">Logout</a>
+            <?php else: ?>
+                <a href="/MealMateTest1/index.php">Acasă</a>
+                <a href="/MealMateTest1/pages/login.php">Login</a>
+                <a href="/MealMateTest1/pages/register.php">Înregistrare</a>
+            <?php endif; ?>
+        </nav>
+    </header>
+
+//pages > aplimente.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+// Adaugare aliment nou
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['adauga'])) {
+    $denumire = trim($_POST['denumire']);
+    $calorii  = (int)$_POST['calorii'];
+    $vegan    = $_POST['vegan'] === 'D' ? 'D' : 'N'; // validare
+
+    execute(
+        "INSERT INTO Alimente (Denumire, Calorii, Vegan) VALUES (?, ?, ?)",
+        [$denumire, $calorii, $vegan]
+    );
+
+    header("Location: alimente.php");
+    exit;
+}
+
+// Stergere aliment
+if (isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    execute("DELETE FROM Alimente WHERE idAliment = ?", [$id]);
+
+    header("Location: alimente.php");
+    exit;
+}
+
+// Preluare alimente existente
+$alimente = select("SELECT * FROM Alimente ORDER BY Denumire ASC");
+?>
+
+<div class="container">
+    <h2>Lista alimentelor</h2>
+
+    <?php if (empty($alimente)): ?>
+        <p>Nu exista alimente introduse in sistem.</p>
+    <?php else: ?>
+        <table border="1" cellpadding="5">
+            <tr>
+                <th>Denumire</th>
+                <th>Calorii / 100g</th>
+                <th>Vegan</th>
+                <th>Actiuni</th>
+            </tr>
+            <?php foreach ($alimente as $a): ?>
+                <tr>
+                    <td><?= htmlspecialchars($a['Denumire']) ?></td>
+                    <td><?= $a['Calorii'] ?></td>
+                    <td><?= $a['Vegan'] === 'D' ? 'Da' : 'Nu' ?></td>
+                    <td>
+                        <a href="?delete=<?= $a['idAliment'] ?>"
+                           onclick="return confirm('Esti sigur ca vrei sa stergi acest aliment?')">
+                            Sterge
+                        </a>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+    <?php endif; ?>
+
+    <h3>Adauga aliment nou</h3>
+    <form method="post">
+        <input type="text" name="denumire" placeholder="Denumire aliment" required>
+        <input type="number" name="calorii" placeholder="Calorii / 100g" required min="0">
+        <label>Vegan:</label>
+        <select name="vegan" required>
+            <option value="D">Da</option>
+            <option value="N">Nu</option>
+        </select>
+        <button type="submit" name="adauga">Adauga aliment</button>
+    </form>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>
+
+// > cumparaturi.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$persoane = select("SELECT idPersoana, NumePrenume FROM Persoane");
+
+$lista = [];
+$selectat = false;
+$idPersoana = '';
+$dataStart = '';
+$dataEnd = '';
+$eroare_data = '';
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $selectat = true;
+    $idPersoana = $_POST['idPersoana'];
+    $dataStart = $_POST['dataStart'];
+    $dataEnd = $_POST['dataEnd'];
+
+    $anStart = (int)date('Y', strtotime($dataStart));
+    $anEnd = (int)date('Y', strtotime($dataEnd));
+    if ($anStart < 2020 || $anEnd < 2020) {
+        $eroare_data = "⚠️ Ai introdus o dată prea veche. Verifică anul ales (ex. 2005 în loc de 2025).";
+    } else {
+        $sql = "
+            SELECT A.Denumire, SUM(RL.Cantitate) AS TotalCantitate
+            FROM PlanAlimentar PA
+            JOIN ReteteL RL ON PA.idReteta = RL.idReteta
+            JOIN Alimente A ON RL.idAliment = A.idAliment
+            WHERE PA.idPersoana = ? AND PA.Data BETWEEN ? AND ?
+            GROUP BY A.Denumire
+            ORDER BY A.Denumire
+        ";
+        $lista = select($sql, [$idPersoana, $dataStart, $dataEnd]);
+    }
+}
+?>
+
+<div class="container">
+    <h2>Listă de cumpărături</h2>
+
+    <form method="post">
+        <label>Persoană:</label><br>
+        <select name="idPersoana" required>
+            <option value="">-- Selectează persoana --</option>
+            <?php foreach ($persoane as $p): ?>
+                <option value="<?= $p['idPersoana'] ?>" <?= ($idPersoana == $p['idPersoana']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($p['NumePrenume']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select><br><br>
+
+        <label>De la data:</label><br>
+        <input type="date" name="dataStart" value="<?= htmlspecialchars($dataStart) ?>" min="2020-01-01" required><br><br>
+
+        <label>Până la data:</label><br>
+        <input type="date" name="dataEnd" value="<?= htmlspecialchars($dataEnd) ?>" min="2020-01-01" required><br><br>
+
+        <button type="submit">Generează lista</button>
+    </form>
+
+    <?php if ($eroare_data): ?>
+        <p style="color:red;"><?= $eroare_data ?></p>
+    <?php elseif (!empty($lista)): ?>
+        <h3>Rezultate:</h3>
+        <p style="color:green;">✅ Lista de cumpărături generată cu succes.</p>
+        <table border="1" cellpadding="5">
+            <tr><th>Aliment</th><th>Cantitate totală (g)</th></tr>
+            <?php foreach ($lista as $item): ?>
+                <tr>
+                    <td><?= htmlspecialchars($item['Denumire']) ?></td>
+                    <td><?= $item['TotalCantitate'] ?> g</td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+    <?php elseif ($selectat): ?>
+        <p style="color:orange;">⚠️ Nu există rețete sau planuri alimentare pentru această persoană în perioada selectată.</p>
+    <?php endif; ?>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>
+
+// > dashboar.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+// Protecție acces
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Preluare statistici cu fallback la 0 dacă nu există rezultate
+function getTotal($sql) {
+    $result = select($sql);
+    return $result ? (int)$result[0]['total'] : 0;
+}
+
+$nrAlimente = getTotal("SELECT COUNT(*) as total FROM Alimente");
+$nrRetete   = getTotal("SELECT COUNT(*) as total FROM ReteteH");
+$nrPersoane = getTotal("SELECT COUNT(*) as total FROM Persoane");
+$nrPlanuri  = getTotal("SELECT COUNT(*) as total FROM PlanAlimentar");
+?>
+
+<div class="container">
+    <h2>Dashboard</h2>
+    <p>Bine ai venit, <strong><?= htmlspecialchars($_SESSION['user']['NumePrenume']) ?></strong>!</p>
+
+    <div class="card">
+        <p><strong><?= $nrAlimente ?></strong> alimente înregistrate</p>
+        <p><strong><?= $nrRetete ?></strong> rețete disponibile</p>
+        <p><strong><?= $nrPersoane ?></strong> persoane în sistem</p>
+        <p><strong><?= $nrPlanuri ?></strong> planuri alimentare create</p>
+    </div>
+
+    <hr>
+    <h3>Linkuri rapide</h3>
+    <ul>
+        <li><a href="alimente.php">📦 Gestionează alimente</a></li>
+        <li><a href="retete.php">📖 Gestionează rețete</a></li>
+        <li><a href="plan_alimentar.php">🗓️ Planificare mese</a></li>
+        <li><a href="cumparaturi.php">🛒 Listă de cumpărături</a></li>
+    </ul>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>
+
+//>login.php
+<?php
+include('../config/database.php');
+session_start();
+
+$mesaj = '';
+
+// Dacă a fost redirecționat cu un mesaj
+if (isset($_SESSION['mesaj_inregistrare'])) {
+    $mesaj = $_SESSION['mesaj_inregistrare'];
+    unset($_SESSION['mesaj_inregistrare']);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = $_POST['username'];
+    $parola = $_POST['parola'];
+
+    $sql = "SELECT * FROM operatori WHERE Operator = ?";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($parola, $user['Parola'])) {
+        $_SESSION['user'] = $user;
+        header("Location: ../index.php");
+        exit;
+    } else {
+        $mesaj = "Utilizator sau parolă incorectă.";
+    }
+}
+?>
+
+<?php include('../includes/header.php'); ?>
+
+<div class="container">
+    <h2>Autentificare Operator</h2>
+    <form method="POST" action="">
+        <input type="text" name="username" placeholder="Nume utilizator" required><br><br>
+        <input type="password" name="parola" placeholder="Parola" required><br><br>
+        <button type="submit">Autentificare</button>
+    </form>
+    <?php if ($mesaj): ?>
+        <p style="color: <?= strpos($mesaj, 'succes') !== false ? 'green' : 'red' ?>;"><?= $mesaj ?></p>
+    <?php endif; ?>
+    <p>Nu ai cont? <a href="register.php">Înregistrează-te aici</a></p>
+</div>
+
+<?php include('../includes/footer.php'); ?>
+
+// >persoane.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
+// Salvare persoană nouă
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['adauga_persoana'])) {
+    $nume = $_POST['nume'];
+    $varsta = $_POST['varsta'];
+    $sex = $_POST['sex'];
+    $inaltime = $_POST['inaltime'];
+    $greutate = $_POST['greutate'];
+    $observatii = $_POST['observatii'];
+
+    execute("INSERT INTO Persoane (NumePrenume, Varsta, Sex, Inaltime, Greutate, Observatii) VALUES (?, ?, ?, ?, ?, ?)", 
+        [$nume, $varsta, $sex, $inaltime, $greutate, $observatii]);
+
+    header("Location: persoane.php");
+    exit;
+}
+
+// Ștergere persoană
+if (isset($_GET['delete'])) {
+    execute("DELETE FROM Persoane WHERE idPersoana = ?", [$_GET['delete']]);
+    header("Location: persoane.php");
+    exit;
+}
+
+$persoane = select("SELECT * FROM Persoane");
+?>
+
+<div class="container">
+    <h2>Persoane</h2>
+
+    <form method="post">
+        <input type="text" name="nume" placeholder="Nume Prenume" required><br><br>
+        <input type="number" name="varsta" placeholder="Vârstă" required><br><br>
+        <select name="sex" required>
+            <option value="F">Femeie</option>
+            <option value="M">Bărbat</option>
+        </select><br><br>
+        <input type="number" name="inaltime" placeholder="Înălțime (cm)" required><br><br>
+        <input type="number" name="greutate" placeholder="Greutate (kg)" required><br><br>
+        <input type="text" name="observatii" placeholder="Observații"><br><br>
+        <button type="submit" name="adauga_persoana">Adaugă persoană</button>
+    </form>
+
+    <hr>
+
+    <h3>Lista persoanelor</h3>
+    <table border="1" cellpadding="5">
+        <tr>
+            <th>Nume</th><th>Vârstă</th><th>Sex</th><th>Înălțime</th><th>Greutate</th><th>Observații</th><th>Acțiuni</th>
+        </tr>
+        <?php foreach ($persoane as $p): ?>
+        <tr>
+            <td><?= htmlspecialchars($p['NumePrenume']) ?></td>
+            <td><?= $p['Varsta'] ?></td>
+            <td><?= $p['Sex'] === 'F' ? 'Femeie' : 'Bărbat' ?></td>
+            <td><?= $p['Inaltime'] ?> cm</td>
+            <td><?= $p['Greutate'] ?> kg</td>
+            <td><?= htmlspecialchars($p['Observatii']) ?></td>
+            <td><a href="?delete=<?= $p['idPersoana'] ?>" onclick="return confirm('Ștergi această persoană?')">🗑️</a></td>
+        </tr>
+        <?php endforeach; ?>
+    </table>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>
+
+//>plan_alimentar.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+if (!isset($_SESSION['user'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$mesaj = '';
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['adauga_plan'])) {
+    $idPersoana = $_POST['idPersoana'];
+    $idReteta = $_POST['idReteta'];
+    $data = $_POST['data'];
+    $tipMasa = $_POST['tipMasa'];
+    $observatii = $_POST['observatii'];
+
+    if (strtotime($data) < strtotime(date('Y-m-d'))) {
+        $mesaj = "⚠️ Nu poți adăuga un plan alimentar cu dată din trecut.";
+    } else {
+        execute("INSERT INTO PlanAlimentar (idPersoana, idReteta, Data, TipMasa, Observatii) VALUES (?, ?, ?, ?, ?)", 
+            [$idPersoana, $idReteta, $data, $tipMasa, $observatii]);
+        $mesaj = "✅ Plan alimentar salvat cu succes.";
+    }
+}
+
+$persoane = select("SELECT idPersoana, NumePrenume FROM Persoane");
+$retete = select("SELECT idReteta, Denumire FROM ReteteH");
+
+$planuri = select("SELECT PA.*, P.NumePrenume, R.Denumire AS NumeReteta
+                   FROM PlanAlimentar PA
+                   JOIN Persoane P ON PA.idPersoana = P.idPersoana
+                   JOIN ReteteH R ON PA.idReteta = R.idReteta
+                   ORDER BY PA.Data DESC");
+?>
+
+<div class="container">
+    <h2>Planificare masă</h2>
+
+    <?php if ($mesaj): ?>
+        <p style="color:<?= strpos($mesaj, '⚠️') !== false ? 'orange' : 'green' ?>"><?= $mesaj ?></p>
+    <?php endif; ?>
+
+    <form method="post">
+        <label>Persoană:</label><br>
+        <select name="idPersoana" required>
+            <?php foreach ($persoane as $p): ?>
+                <option value="<?= $p['idPersoana'] ?>"><?= htmlspecialchars($p['NumePrenume']) ?></option>
+            <?php endforeach; ?>
+        </select><br><br>
+
+        <label>Dată:</label><br>
+        <input type="date" name="data" min="<?= date('Y-m-d') ?>" required><br><br>
+
+        <label>Tip masă:</label><br>
+        <select name="tipMasa" required>
+            <option value="M">Mic dejun</option>
+            <option value="P">Prânz</option>
+            <option value="C">Cină</option>
+        </select><br><br>
+
+        <label>Rețetă:</label><br>
+        <select name="idReteta" required>
+            <?php foreach ($retete as $r): ?>
+                <option value="<?= $r['idReteta'] ?>"><?= htmlspecialchars($r['Denumire']) ?></option>
+            <?php endforeach; ?>
+        </select><br><br>
+
+        <label>Observații:</label><br>
+        <input type="text" name="observatii"><br><br>
+
+        <button type="submit" name="adauga_plan">Salvează planul</button>
+    </form>
+
+    <hr>
+
+    <h3>Planuri alimentare existente</h3>
+    <?php if (empty($planuri)): ?>
+        <p style="color:orange;">⚠️ Nu există planuri alimentare înregistrate.</p>
+    <?php else: ?>
+        <table border="1" cellpadding="5">
+            <tr>
+                <th>Persoană</th>
+                <th>Dată</th>
+                <th>Masă</th>
+                <th>Rețetă</th>
+                <th>Observații</th>
+            </tr>
+            <?php foreach ($planuri as $plan): ?>
+                <tr>
+                    <td><?= htmlspecialchars($plan['NumePrenume']) ?></td>
+                    <td><?= $plan['Data'] ?></td>
+                    <td><?= $plan['TipMasa'] === 'M' ? 'Mic dejun' : ($plan['TipMasa'] === 'P' ? 'Prânz' : 'Cină') ?></td>
+                    <td><?= htmlspecialchars($plan['NumeReteta']) ?></td>
+                    <td><?= htmlspecialchars($plan['Observatii']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+    <?php endif; ?>
+</div>
+
+<?php require_once '../includes/footer.php'; ?>
+
+//>register.php
+<?php
+include('../config/database.php');
+session_start();
+
+$mesaj = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nume = trim($_POST['nume']);
+    $username = trim($_POST['username']);
+    $parola = trim($_POST['parola']);
+    $confirmare = trim($_POST['confirmare']);
+
+    if ($parola !== $confirmare) {
+        $mesaj = "Parolele nu coincid.";
+    } else {
+        $stmt = $pdo->prepare("SELECT * FROM operatori WHERE Operator = ?");
+        $stmt->execute([$username]);
+
+        if ($stmt->rowCount() > 0) {
+            $mesaj = "Acest username este deja folosit.";
+        } else {
+            $parolaHash = password_hash($parola, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO operatori (NumePrenume, Operator, Parola, TipOperator) VALUES (?, ?, ?, 'O')");
+            $rezultat = $stmt->execute([$nume, $username, $parolaHash]);
+
+            if ($rezultat) {
+                $_SESSION['user'] = [
+                    'NumePrenume' => $nume,
+                    'Operator' => $username,
+                    'TipOperator' => 'O'
+                ];
+                $_SESSION['mesaj_bun_venit'] = "Cont creat cu succes. Bine ai venit în MealMate!";
+                header("Location: ../index.php");
+                exit;
+            } else {
+                $mesaj = "Eroare la înregistrare.";
+            }
+        }
+    }
+}
+?>
+
+<?php include('../includes/header.php'); ?>
+
+<div class="container">
+    <h2>Înregistrare Operator</h2>
+    <form method="POST" action="">
+        <input type="text" name="nume" placeholder="Nume complet" required><br><br>
+        <input type="text" name="username" placeholder="Username" required><br><br>
+        <input type="password" name="parola" placeholder="Parolă" required><br><br>
+        <input type="password" name="confirmare" placeholder="Confirmă parola" required><br><br>
+        <button type="submit">Înregistrează-te</button>
+    </form>
+    <?php if ($mesaj): ?>
+        <p style="color: <?= strpos($mesaj, 'succes') !== false ? 'green' : 'red' ?>;"><?= $mesaj ?></p>
+    <?php endif; ?>
+    <p>Ai deja un cont? <a href="login.php">Autentifică-te aici</a></p>
+</div>
+
+<?php include('../includes/footer.php'); ?>
+
+//>retete.php
+<?php
+require_once '../includes/header.php';
+require_once '../includes/db.php';
+
+$alimente = select("SELECT idAliment, Denumire FROM Alimente");
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['adauga_reteta'])) {
+    $denumire = $_POST['denumire'];
+    $observatii = $_POST['observatii'];
+    $idAliment = $_POST['idAliment'];
+    $cantitate = $_POST['cantitate'];
+
+    execute("INSERT INTO ReteteH (Denumire, Observatii) VALUES (?, ?)", [$denumire, $observatii]);
+    $idReteta = $pdo->lastInsertId();
+    execute("INSERT INTO ReteteL (idReteta, idAliment, Cantitate) VALUES (?, ?, ?)", [$idReteta, $idAliment, $cantitate]);
+
+    header("Location: retete.php");
+    exit;
+}
+
+if (isset($_GET['delete'])) {
+    $id = $_GET['delete'];
+    execute("DELETE FROM ReteteH WHERE idReteta = ?", [$id]);
+    execute("DELETE FROM ReteteL WHERE idReteta = ?", [$id]);
+    header("Location: retete.php");
+    exit;
+}
+
+$retete = select("SELECT * FROM ReteteH");
+?>
+
+<h2>Rețete</h2>
+<table border="1" cellpadding="5">
+    <tr><th>Denumire</th><th>Observații</th><th>Acțiuni</th></tr>
+    <?php foreach ($retete as $r): ?>
+        <tr>
+            <td><?= htmlspecialchars($r['Denumire']) ?></td>
+            <td><?= htmlspecialchars($r['Observatii']) ?></td>
+            <td><a href="?delete=<?= $r['idReteta'] ?>" onclick="return confirm('Ștergi rețeta?')">🗑️</a></td>
+        </tr>
+    <?php endforeach; ?>
+</table>
+
+<h3>Adaugă rețetă</h3>
+<form method="post">
+    <input type="text" name="denumire" placeholder="Nume rețetă" required><br><br>
+    <input type="text" name="observatii" placeholder="Observații" required><br><br>
+
+    <label>Ingredient principal:</label><br>
+    <select name="idAliment" required>
+        <?php foreach ($alimente as $a): ?>
+            <option value="<?= $a['idAliment'] ?>"><?= htmlspecialchars($a['Denumire']) ?></option>
+        <?php endforeach; ?>
+    </select><br><br>
+
+    <input type="number" name="cantitate" placeholder="Cantitate (g)" required><br><br>
+
+    <button type="submit" name="adauga_reteta">Salvează</button>
+</form>
+
+<?php require_once '../includes/footer.php'; ?>
+
+
+//MealMate>index.php
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once('config/database.php');
+require_once('includes/header.php');
+
+// logout
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header("Location: index.php");
+    exit;
+}
+
+// Afișăm mesajul de bun venit o singură dată
+if (isset($_SESSION['mesaj_bun_venit'])) {
+    echo '<p style="color:green; text-align:center;">' . $_SESSION['mesaj_bun_venit'] . '</p>';
+    unset($_SESSION['mesaj_bun_venit']);
+}
+?>
+
+<div class="container">
+    <?php if (isset($_SESSION['user'])): ?>
+        <h1>Bine ai revenit, <?= htmlspecialchars($_SESSION['user']['NumePrenume']) ?>!</h1>
+        <p>Poți accesa <a href="pages/dashboard.php">Dashboard-ul</a> pentru a gestiona aplicația.</p>
+    <?php else: ?>
+        <h1>Bine ai venit în MealMate!</h1>
+        <p>Aplicație de planificare a dietei. Autentifică-te pentru a începe.</p>
+        <a href="pages/login.php"><button>Autentificare</button></a>
+        <p>Nu ai cont? <a href="pages/register.php">Înregistrează-te aici</a></p>
+    <?php endif; ?>
+</div>
+
+<?php require_once('includes/footer.php'); ?>
+
+
+
+
+
+
+# 🍽️ MealMate – Aplicație de Planificare a Dietei
+
+**MealMate** este o aplicație web simplă și intuitivă, dedicată gestionării alimentației personale sau pentru mai multe persoane. Poți crea rețete, planuri alimentare zilnice, genera liste de cumpărături, urmări alimentele disponibile și centraliza totul într-un dashboard interactiv.
+
+---
+
+## ⚙️ Funcționalități principale
+
+- ✅ Autentificare și înregistrare operatori
+- ✅ Dashboard cu statistici (alimente, rețete, planuri, persoane)
+- ✅ Gestionare alimente: denumire, calorii, statut vegan
+- ✅ Adăugare și ștergere rețete (cu ingrediente din baza de date)
+- ✅ Planificare mese (Mic dejun / Prânz / Cină)
+- ✅ Generare listă de cumpărături în funcție de planul alimentar
+- ✅ Gestionare persoane (vârstă, sex, înălțime, greutate)
+- ✅ Protecție pentru date invalide și validări în timp real
+
+---
+
+## 🛠️ Tehnologii utilizate
+
+- **Frontend**: HTML5, CSS3
+- **Backend**: PHP 8+
+- **Bază de date**: MySQL
+- **Sesiuni**: PHP Sessions pentru autentificare
+- **Design simplu & responsive** (fără framework extern)
+
+---
+
+## 🗂️ Structura proiectului
+MealMateTest1/ │ ├── assets/ # Fișiere CSS │ └── style.css │ ├── config/ # Configurații conexiune DB │ └── database.php │ ├── includes/ # Elemente partajate │ ├── header.php │ ├── footer.php │ └── db.php │ ├── pages/ # Pagini funcționale │ ├── alimente.php │ ├── dashboard.php │ ├── plan_alimentar.php │ ├── persoane.php │ ├── cumparaturi.php │ ├── retete.php │ ├── login.php │ └── register.php │ └── index.php # Pagina principală
+
+---
+
+## 🔧 Configurare locală (Laragon / XAMPP)
+
+1. Clonează sau copiază proiectul în folderul `www` (Laragon) sau `htdocs` (XAMPP).
+2. Creează baza de date `DietaDB` în phpMyAdmin.
+3. Importă structura bazei de date din fișierul `DietaDB.sql` (dacă există).
+4. Verifică în `config/database.php`:
+```php
+$host = 'localhost';
+$db   = 'DietaDB';
+$user = 'root';
+$pass = '';
+
+
+
+Deschide în browser:
+👉 http://localhost/MealMateTest1/index.php
